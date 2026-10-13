@@ -19,7 +19,7 @@ except Exception:
 
     splog.info("Loaded PySide2")
 
-VERSION = [0, 2, 0]
+VERSION = [0, 2, 1]
 VERSION_STR = ".".join(str(v) for v in VERSION)
 
 PLUGIN_NAME = "Quick Tools"
@@ -209,7 +209,7 @@ class ToggleDialog(QtWidgets.QDialog):
 
         layout = QtWidgets.QVBoxLayout(self)
 
-        layout.addWidget(QtWidgets.QLabel("<b>Texture Sets to affect</b>"))
+        layout.addWidget(QtWidgets.QLabel("<b>Texture Sets</b>"))
 
         # Scrollable checkbox list
         list_layout = QtWidgets.QVBoxLayout()
@@ -414,22 +414,19 @@ def start_plugin():
     main_window = spui.get_main_window()
 
     # Add menu entry
-    file_menu = QtWidgets.QMenu(MENU_CATEGORY_0)
-    main_window.menuBar().addMenu(file_menu)
+    menu = main_window.menuBar().addMenu(MENU_CATEGORY_0)
 
     # Add "Rename" action
-    action_rename_texture_sets = QAction(ACTION_RENAME)
+    action_rename_texture_sets = menu.addAction(ACTION_RENAME)
     action_rename_texture_sets.triggered.connect(show_rename_dialog)
-    file_menu.addAction(action_rename_texture_sets)
 
     # Add "Toggle Layers" action
-    action_toggle_layers = QAction(ACTION_TOGGLE)
+    action_toggle_layers = menu.addAction(ACTION_TOGGLE)
     action_toggle_layers.triggered.connect(show_toggle_dialog)
-    file_menu.addAction(action_toggle_layers)
 
-    plugin_widgets.extend([file_menu, action_rename_texture_sets, action_toggle_layers])
+    plugin_widgets.append(menu)
 
-    splog.info(f"Started {PLUGIN_NAME}")
+    splog.info(f"Started {PLUGIN_NAME} - {VERSION_STR}")
 
 
 def close_plugin():
@@ -440,7 +437,7 @@ def close_plugin():
             splog.error(f"Failed to delete UI element: {widget}: {e}")
     plugin_widgets.clear()
 
-    splog.info(f"Closed {PLUGIN_NAME}")
+    splog.info(f"Closed {PLUGIN_NAME} - {VERSION_STR}")
 
 
 if __name__ == "__main__":
