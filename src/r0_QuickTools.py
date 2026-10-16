@@ -19,7 +19,7 @@ except Exception:
 
     splog.info("Loaded PySide2")
 
-VERSION = [0, 3, 0]
+VERSION = [0, 3, 1]
 VERSION_STR = ".".join(str(v) for v in VERSION)
 
 PLUGIN_NAME = "Quick Tools"
@@ -248,7 +248,7 @@ class RenameDialog(QtWidgets.QDialog):
         # Scroll area for overflow of Texture Sets
         container = QtWidgets.QWidget()
         container.setLayout(grid)
-        scroll = QtWidgets.QScrollArea()
+        scroll = CompactScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(container)
         layout.addWidget(scroll)
@@ -298,6 +298,13 @@ class RenameDialog(QtWidgets.QDialog):
         return renames
 
 
+class CompactScrollArea(QtWidgets.QScrollArea):
+    """Scroll area that prefers its minimum height instead of fitting its contents."""
+
+    def sizeHint(self):
+        return QtCore.QSize(super().sizeHint().width(), self.minimumHeight())
+
+
 class ToggleLayersDialog(QtWidgets.QDialog):
     def __init__(self, texture_sets, parent=None):
         super().__init__(parent)
@@ -317,6 +324,17 @@ class ToggleLayersDialog(QtWidgets.QDialog):
 
         layout.addWidget(QtWidgets.QLabel("<b>Texture Sets</b>"))
 
+        # Select all/none
+        row = QtWidgets.QHBoxLayout()
+        btn_all = QtWidgets.QPushButton("All")
+        btn_none = QtWidgets.QPushButton("None")
+        btn_all.clicked.connect(lambda: self._set_all(True))
+        btn_none.clicked.connect(lambda: self._set_all(False))
+        row.addWidget(btn_all)
+        row.addWidget(btn_none)
+        row.addStretch(1)
+        layout.addLayout(row)
+
         # Scrollable checkbox list
         list_layout = QtWidgets.QVBoxLayout()
         for ts in self._texture_sets:
@@ -328,22 +346,11 @@ class ToggleLayersDialog(QtWidgets.QDialog):
 
         container = QtWidgets.QWidget()
         container.setLayout(list_layout)
-        scroll = QtWidgets.QScrollArea()
+        scroll = CompactScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setMinimumHeight(150)
         scroll.setWidget(container)
         layout.addWidget(scroll)
-
-        # Select all/none
-        row = QtWidgets.QHBoxLayout()
-        btn_all = QtWidgets.QPushButton("All")
-        btn_none = QtWidgets.QPushButton("None")
-        btn_all.clicked.connect(lambda: self._set_all(True))
-        btn_none.clicked.connect(lambda: self._set_all(False))
-        row.addWidget(btn_all)
-        row.addWidget(btn_none)
-        row.addStretch(1)
-        layout.addLayout(row)
 
         # Name fields
         form = QtWidgets.QFormLayout()
@@ -419,7 +426,7 @@ class ConflictDialog(QtWidgets.QDialog):
 
         container = QtWidgets.QWidget()
         container.setLayout(list_layout)
-        scroll = QtWidgets.QScrollArea()
+        scroll = CompactScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(container)
         layout.addWidget(scroll)
