@@ -19,7 +19,7 @@ except Exception:
 
     splog.info("Loaded PySide2")
 
-VERSION = [0, 2, 1]
+VERSION = [0, 3, 0]
 VERSION_STR = ".".join(str(v) for v in VERSION)
 
 PLUGIN_NAME = "Quick Tools"
@@ -28,6 +28,184 @@ ACTION_RENAME = "Rename Texture Sets..."
 ACTION_TOGGLE = "Toggle Layers by Name..."
 
 plugin_widgets = []
+
+
+def get_texture_set_name(ts):
+    # 11.0+: `name` is a property. Older versions: `name()` is a method.
+    name = ts.name
+    return name() if callable(name) else name
+
+
+def can_rename_texture_sets(texture_sets):
+    # In the old API `name` is callable and has no setter. Assigning to it
+    # could silently shadow the method instead of raising, so check up front.
+    return not any(callable(ts.name) for ts in texture_sets)
+
+
+def rename_texture_sets(renames):
+    if not can_rename_texture_sets([ts for ts, _ in renames]):
+        raise RuntimeError("Renaming texture sets requires Substance 3D Painter 11.0 or newer.")
+
+    # Two-pass rename through temporary names to allow swaps/chains (A->B, B->A)
+    for i, (ts, _) in enumerate(renames):
+        ts.name = f"__{PLUGIN_NAME.replace(' ', '_')}_tmp_{i}__"
+
+    for ts, new_name in renames:
+        ts.name = new_name
+
+
+def parse_names(text):
+    """'a, b ,, c' -> ['a', 'b', 'c'] (empty entries and case-insensitive duplicates removed)"""
+    names, seen = [], set()
+
+    for part in text.split(","):
+        part: str = part.strip()
+        key: str = part.casefold()
+        if part and key not in seen:
+            seen.add(key)
+            names.append(part)
+
+    return names
+
+
+def find_node_state(key, states, loose):
+    """Return True/False for the node name `key`, or None if nothing matches."""
+    if key in states:  # Exact match
+        return states[key]
+
+    if not loose:
+        return None
+
+    matches = [k for k in states if key.startswith(k)]
+    if not matches:
+        return None
+
+    # If several entries match, longer one wins
+    return states[max(matches, key=len)]
+
+
+def get_child_nodes(node):
+    """Child noeds of a group layer, or [] for regular layers."""
+    for attr in ("sub_layers", "children"):
+        value = getattr(node, attr, None)
+        if value is not None:
+            return list(value() if callable(value) else value)
+
+    getter = getattr(splayerstack, "get_children", None)
+    if getter:
+        try:
+            return list(getter(node))
+        except Exception:
+            pass
+
+    return []
+
+
+def iter_nodes(nodes):
+    """Depth-first walk over every layer/folder."""
+    for node in nodes:
+        yield node
+        yield from iter_nodes(get_child_nodes(node))
+
+
+def get_stacks(ts):
+    try:
+        return list(ts.all_stacks())
+    except Exception:
+        return [sptextureset.Stack.from_name(get_texture_set_name(ts))]
+
+
+def apply_toggles(texture_sets, states, loose=False):
+    """states: {name.casefold(): bool}. Returns number of nodes changed."""
+    changed = 0
+
+    for ts in texture_sets:
+        for stack in get_stacks(ts):
+            roots = splayerstack.get_root_layer_nodes(stack)
+            for node in iter_nodes(roots):
+                key = node.get_name().strip().casefold()
+                state = find_node_state(key, states, loose)
+                if state is None:
+                    continue
+
+                node.set_visible(state)
+                changed += 1
+
+    return changed
+
+
+def show_rename_dialog():
+    if not spproject.is_open():
+        QtWidgets.QMessageBox.information(spui.get_main_window(), PLUGIN_NAME, "A project must first be open.")
+        return
+
+    texture_sets = sptextureset.all_texture_sets()
+    if not texture_sets:
+        QtWidgets.QMessageBox.information(spui.get_main_window(), PLUGIN_NAME, "Project has no texture sets.")
+        return
+
+    if not can_rename_texture_sets(texture_sets):
+        QtWidgets.QMessageBox.warning(
+            spui.get_main_window(),
+            PLUGIN_NAME,
+            "Renaming texture sets requires Substance 3D Painter 11.0 or newer.",
+        )
+        return
+
+    try:
+        dialog = RenameDialog(texture_sets, spui.get_main_window())
+        if dialog.exec_() != QtWidgets.QDialog.Accepted:
+            return
+
+        renames = dialog.get_renames()
+        if not renames:
+            return
+
+        rename_texture_sets(renames)
+        splog.info(f"{PLUGIN_NAME}: renamed {len(renames)} texture set(s)")
+    except Exception as e:
+        splog.error(f"{PLUGIN_NAME}: {traceback.format_exc()}")
+
+
+def show_toggle_layers_dialog():
+    main_window = spui.get_main_window()
+
+    if not spproject.is_open():
+        QtWidgets.QMessageBox.information(main_window, PLUGIN_NAME, "A project must be open.")
+        return
+
+    texture_sets = sptextureset.all_texture_sets()
+    if not texture_sets:
+        QtWidgets.QMessageBox.information(main_window, PLUGIN_NAME, "Project has no texture sets.")
+        return
+
+    try:
+        dialog = ToggleLayersDialog(texture_sets, main_window)
+        if dialog.exec_() != QtWidgets.QDialog.Accepted:
+            return
+
+        on_names = dialog.get_on_names()
+        off_names = dialog.get_off_names()
+
+        states = {n.casefold(): True for n in on_names}
+        states.update({n.casefold(): False for n in off_names})
+
+        # Names present in both lists -> Ask user
+        off_keys = {n.casefold() for n in off_names}
+        conflicts = [n for n in on_names if n.casefold() in off_keys]
+
+        if conflicts:
+            conflict_dialog = ConflictDialog(conflicts, main_window)
+            if conflict_dialog.exec_() != QtWidgets.QDialog.Accepted:
+                return
+
+            for name, state in conflict_dialog.get_states().items():
+                states[name.casefold()] = state
+
+        changed = apply_toggles(dialog.get_selected_texture_sets(), states, dialog.is_loose_matching())
+        splog.info(f"{PLUGIN_NAME}: toggled {changed} layer(s)/folder(s)")
+    except Exception:
+        splog.error(f"{PLUGIN_NAME}: {traceback.format_exc()}")
 
 
 class RenameDialog(QtWidgets.QDialog):
@@ -120,83 +298,11 @@ class RenameDialog(QtWidgets.QDialog):
         return renames
 
 
-def get_texture_set_name(ts):
-    # 11.0+: `name` is a property. Older versions: `name()` is a method.
-    name = ts.name
-    return name() if callable(name) else name
-
-
-def can_rename_texture_sets(texture_sets):
-    # In the old API `name` is callable and has no setter. Assigning to it
-    # could silently shadow the method instead of raising, so check up front.
-    return not any(callable(ts.name) for ts in texture_sets)
-
-
-def rename_texture_sets(renames):
-    if not can_rename_texture_sets([ts for ts, _ in renames]):
-        raise RuntimeError("Renaming texture sets requires Substance 3D Painter 11.0 or newer.")
-
-    # Two-pass rename through temporary names to allow swaps/chains (A->B, B->A)
-    for i, (ts, _) in enumerate(renames):
-        ts.name = f"__{PLUGIN_NAME.replace(' ', '_')}_tmp_{i}__"
-
-    for ts, new_name in renames:
-        ts.name = new_name
-
-
-def show_rename_dialog():
-    if not spproject.is_open():
-        QtWidgets.QMessageBox.information(spui.get_main_window(), PLUGIN_NAME, "A project must first be open.")
-        return
-
-    texture_sets = sptextureset.all_texture_sets()
-    if not texture_sets:
-        QtWidgets.QMessageBox.information(spui.get_main_window(), PLUGIN_NAME, "Project has no texture sets.")
-        return
-
-    if not can_rename_texture_sets(texture_sets):
-        QtWidgets.QMessageBox.warning(
-            spui.get_main_window(),
-            PLUGIN_NAME,
-            "Renaming texture sets requires Substance 3D Painter 11.0 or newer.",
-        )
-        return
-
-    try:
-        dialog = RenameDialog(texture_sets, spui.get_main_window())
-        if dialog.exec_() != QtWidgets.QDialog.Accepted:
-            return
-
-        renames = dialog.get_renames()
-        if not renames:
-            return
-
-        rename_texture_sets(renames)
-        splog.info(f"{PLUGIN_NAME}: renamed {len(renames)} texture set(s)")
-    except Exception as e:
-        splog.error(f"{PLUGIN_NAME}: {traceback.format_exc()}")
-
-
-def parse_names(text):
-    """'a, b ,, c' -> ['a', 'b', 'c'] (empty entries and case-insensitive duplicates removed)"""
-    names, seen = [], set()
-
-    for part in text.split(","):
-        part: str = part.strip()
-        key: str = part.casefold()
-        if part and key not in seen:
-            seen.add(key)
-            names.append(part)
-
-    return names
-
-
-class ToggleDialog(QtWidgets.QDialog):
+class ToggleLayersDialog(QtWidgets.QDialog):
     def __init__(self, texture_sets, parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"{PLUGIN_NAME} - {VERSION_STR}")
         self.setModal(True)
-        # self.setGeometry(self.x(), self.y(), 300, self.height())
         self.setMinimumWidth(450)
 
         self._texture_sets = texture_sets
@@ -249,6 +355,11 @@ class ToggleDialog(QtWidgets.QDialog):
         form.addRow("Toggle OFF:", self._off_edit)
         layout.addLayout(form)
 
+        # Loose checkbox for name matching
+        self._loose_check = QtWidgets.QCheckBox("Loose matching (layer names starting with the entry)")
+        self._loose_check.setToolTip('ex.: "dam" matches "Damage" and "Damge"')
+        layout.addWidget(self._loose_check)
+
         buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
@@ -277,6 +388,9 @@ class ToggleDialog(QtWidgets.QDialog):
 
     def get_off_names(self):
         return parse_names(self._off_edit.text())
+
+    def is_loose_matching(self):
+        return self._loose_check.isChecked()
 
 
 class ConflictDialog(QtWidgets.QDialog):
@@ -320,96 +434,6 @@ class ConflictDialog(QtWidgets.QDialog):
         return {name: check.isChecked() for name, check in self._checks}
 
 
-def get_child_nodes(node):
-    """Child noeds of a group layer, or [] for regular layers."""
-    for attr in ("sub_layers", "children"):
-        value = getattr(node, attr, None)
-        if value is not None:
-            return list(value() if callable(value) else value)
-
-    getter = getattr(splayerstack, "get_children", None)
-    if getter:
-        try:
-            return list(getter(node))
-        except Exception:
-            pass
-
-    return []
-
-
-def iter_nodes(nodes):
-    """Depth-first walk over every layer/folder."""
-    for node in nodes:
-        yield node
-        yield from iter_nodes(get_child_nodes(node))
-
-
-def get_stacks(ts):
-    try:
-        return list(ts.all_stacks())
-    except Exception:
-        return [sptextureset.Stack.from_name(get_texture_set_name(ts))]
-
-
-def apply_toggles(texture_sets, states):
-    """states: {name.casefold(): bool}. Returns number of nodes changed."""
-    changed = 0
-
-    for ts in texture_sets:
-        for stack in get_stacks(ts):
-            roots = splayerstack.get_root_layer_nodes(stack)
-            for node in iter_nodes(roots):
-                key = node.get_name().strip().casefold()
-                if key not in states:
-                    continue
-
-                node.set_visible(states[key])
-                changed += 1
-
-    return changed
-
-
-def show_toggle_dialog():
-    main_window = spui.get_main_window()
-
-    if not spproject.is_open():
-        QtWidgets.QMessageBox.information(main_window, PLUGIN_NAME, "A project must be open.")
-        return
-
-    texture_sets = sptextureset.all_texture_sets()
-    if not texture_sets:
-        QtWidgets.QMessageBox.information(main_window, PLUGIN_NAME, "Project has no texture sets.")
-        return
-
-    try:
-        dialog = ToggleDialog(texture_sets, main_window)
-        if dialog.exec_() != QtWidgets.QDialog.Accepted:
-            return
-
-        on_names = dialog.get_on_names()
-        off_names = dialog.get_off_names()
-
-        states = {n.casefold(): True for n in on_names}
-        states.update({n.casefold(): False for n in off_names})
-
-        # Names present in both lists -> Ask user
-        off_keys = {n.casefold() for n in off_names}
-        conflicts = [n for n in on_names if n.casefold() in off_keys]
-
-        if conflicts:
-            conflict_dialog = ConflictDialog(conflicts, main_window)
-            if conflict_dialog.exec_() != QtWidgets.QDialog.Accepted:
-                return
-
-            for name, state in conflict_dialog.get_states().items():
-                states[name.casefold()] = state
-
-        changed = apply_toggles(dialog.get_selected_texture_sets(), states)
-        splog.info(f"{PLUGIN_NAME}: toggled {changed} layer(s)/folder(s)")
-    except Exception:
-        splog.error(f"{PLUGIN_NAME}: {traceback.format_exc()}")
-
-
 def start_plugin():
     main_window = spui.get_main_window()
 
@@ -422,7 +446,7 @@ def start_plugin():
 
     # Add "Toggle Layers" action
     action_toggle_layers = menu.addAction(ACTION_TOGGLE)
-    action_toggle_layers.triggered.connect(show_toggle_dialog)
+    action_toggle_layers.triggered.connect(show_toggle_layers_dialog)
 
     plugin_widgets.append(menu)
 
