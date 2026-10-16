@@ -138,17 +138,24 @@ def apply_toggles(texture_sets, states, loose=False):
     """states: {name.casefold(): bool}. Returns number of nodes changed."""
     changed = 0
 
+    log = []
+
     for ts in texture_sets:
+        ts_name = get_texture_set_name(ts)
         for stack in get_stacks(ts):
             roots = splayerstack.get_root_layer_nodes(stack)
             for node in iter_nodes(roots):
-                key = node.get_name().strip().casefold()
+                node_name = node.get_name()
+                key = node_name.strip().casefold()
                 state = find_node_state(key, states, loose)
                 if state is None:
                     continue
 
                 node.set_visible(state)
+                log.append(f"[{ts_name}] {node_name} set visible: {state}")
                 changed += 1
+
+    splog.info("\n".join(log))
 
     return changed
 
@@ -206,12 +213,19 @@ def show_toggle_layers_dialog():
         on_names = dialog.get_on_names()
         off_names = dialog.get_off_names()
 
+        splog.info(f"On Names: {on_names}")
+        splog.info(f"On Names: {off_names}")
+
         states = {n.casefold(): True for n in on_names}
         states.update({n.casefold(): False for n in off_names})
+
+        splog.info(f"States: {states}")
 
         # Names present in both lists -> Ask user
         off_keys = {n.casefold() for n in off_names}
         conflicts = [n for n in on_names if n.casefold() in off_keys]
+
+        splog.info(f"Conflicts ({len(conflicts)}): {conflicts}")
 
         if conflicts:
             conflict_dialog = ConflictDialog(conflicts, main_window)
