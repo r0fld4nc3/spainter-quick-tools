@@ -340,8 +340,6 @@ class ToggleLayersDialog(QtWidgets.QDialog):
     def _setup_layout(self):
         splog.info("Setup layout")
 
-        saved_unchecked = SessionSettings.toggle_layers_tool.unchecked_texture_sets
-
         layout = QtWidgets.QVBoxLayout(self)
 
         layout.addWidget(QtWidgets.QLabel("<b>Texture Sets</b>"))
@@ -358,6 +356,8 @@ class ToggleLayersDialog(QtWidgets.QDialog):
         layout.addLayout(row)
 
         # Scrollable checkbox list
+        saved_unchecked = SessionSettings.toggle_layers_tool.unchecked_texture_sets
+
         list_layout = QtWidgets.QVBoxLayout()
         for ts in self._texture_sets:
             name = get_texture_set_name(ts)
