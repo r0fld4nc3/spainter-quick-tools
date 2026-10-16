@@ -1,4 +1,5 @@
 import traceback
+from dataclasses import dataclass, field
 
 import substance_painter.layerstack as splayerstack
 import substance_painter.logging as splog
@@ -28,6 +29,24 @@ ACTION_RENAME = "Rename Texture Sets..."
 ACTION_TOGGLE = "Toggle Layers by Name..."
 
 plugin_widgets = []
+
+
+@dataclass
+class ToggleLayersToolSettings:
+    unchecked_texture_sets: set[str] = field(default_factory=set)
+    on_names: str = ""
+    off_names: str = ""
+    loose_matching: bool = False
+
+
+@dataclass
+class Settings:
+    """Session-only settings, kept in memory until Painter closes."""
+
+    toggle_layers_tool: ToggleLayersToolSettings = field(default_factory=ToggleLayersToolSettings)
+
+
+SessionSettings: Settings = Settings()
 
 
 def get_texture_set_name(ts):
@@ -308,6 +327,7 @@ class CompactScrollArea(QtWidgets.QScrollArea):
 class ToggleLayersDialog(QtWidgets.QDialog):
     def __init__(self, texture_sets, parent=None):
         super().__init__(parent)
+        self.tool_name = "ToggleLayersDialog"
         self.setWindowTitle(f"{PLUGIN_NAME} - {VERSION_STR}")
         self.setModal(True)
         self.setMinimumWidth(450)
@@ -319,6 +339,8 @@ class ToggleLayersDialog(QtWidgets.QDialog):
 
     def _setup_layout(self):
         splog.info("Setup layout")
+
+        saved_unchecked = SessionSettings.toggle_layers_tool.unchecked_texture_sets
 
         layout = QtWidgets.QVBoxLayout(self)
 
@@ -338,8 +360,9 @@ class ToggleLayersDialog(QtWidgets.QDialog):
         # Scrollable checkbox list
         list_layout = QtWidgets.QVBoxLayout()
         for ts in self._texture_sets:
+            name = get_texture_set_name(ts)
             check = QtWidgets.QCheckBox(get_texture_set_name(ts))
-            check.setChecked(True)
+            check.setChecked(name not in saved_unchecked)
             list_layout.addWidget(check)
             self._checks.append((ts, check))
         list_layout.addStretch(1)
@@ -365,12 +388,22 @@ class ToggleLayersDialog(QtWidgets.QDialog):
         # Loose checkbox for name matching
         self._loose_check = QtWidgets.QCheckBox("Loose matching (layer names starting with the entry)")
         self._loose_check.setToolTip('ex.: "dam" matches "Damage" and "Damge"')
+        self._loose_check.setChecked(SessionSettings.toggle_layers_tool.loose_matching)
         layout.addWidget(self._loose_check)
 
         buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         buttons.accepted.connect(self._on_accept)
-        buttons.rejected.connect(self.reject)
+        buttons.rejected.connect(self._on_reject)
         layout.addWidget(buttons)
+
+    def _save_settings(self):
+        splog.info(f"{self.tool_name}: saving settings")
+
+        s = SessionSettings.toggle_layers_tool
+        s.unchecked_texture_sets = {get_texture_set_name(ts) for ts, check in self._checks if not check.isChecked()}
+        s.on_names = self._on_edit.text()
+        s.off_names = self._off_edit.text()
+        s.loose_matching = self._loose_check.isChecked()
 
     def _set_all(self, state):
         for _, check in self._checks:
@@ -385,7 +418,12 @@ class ToggleLayersDialog(QtWidgets.QDialog):
             QtWidgets.QMessageBox.warning(self, PLUGIN_NAME, "Enter at least one layer/folder name.")
             return
 
+        self._save_settings()
         self.accept()
+
+    def _on_reject(self):
+        self._save_settings()
+        self.reject()
 
     def get_selected_texture_sets(self):
         return [ts for ts, check in self._checks if check.isChecked()]
