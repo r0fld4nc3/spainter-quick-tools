@@ -20,8 +20,6 @@ def apply_toggles(texture_sets, states, loose=False):
     log = []
 
     for ts, node in iter_layer_nodes(texture_sets):
-        splog.info(f"Visiting: [{get_texture_set_name(ts)}] {node.get_name()}")
-
         node_name = node.get_name()
         match = find_matching_key(node_name.strip().casefold(), states, loose)
         if match is None:
