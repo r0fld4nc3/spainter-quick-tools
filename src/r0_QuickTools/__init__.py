@@ -4,6 +4,8 @@ Quick Tools for Substance Painter 3D.
 Init entry point for the plugin.
 """
 
+import sys
+
 import substance_painter.logging as splog
 import substance_painter.ui as spui
 
@@ -97,4 +99,18 @@ def close_plugin():
     plugin_widgets.clear()
     active_tools.clear()
 
+    _unload_submodules()
+
     splog.info(f"Closed {PLUGIN_NAME} - {VERSION_STR}")
+
+
+def _unload_submodules():
+    """Forget this plugin's submodules so the next start re-imports them from disk.
+
+    Without this, reloading the plugin in Painter only re-runs __init__.py and keeps
+    old versions of tools/, text_utils.py, etc. in memory until Painter restarts.
+    Annoying.
+    """
+    prefix = __name__ + "."
+    for name in [m for m in sys.modules if m.startswith(prefix)]:
+        del sys.modules[name]

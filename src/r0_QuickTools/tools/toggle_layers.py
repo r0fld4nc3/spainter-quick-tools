@@ -20,6 +20,8 @@ def apply_toggles(texture_sets, states, loose=False):
     log = []
 
     for ts, node in iter_layer_nodes(texture_sets):
+        splog.info(f"Visiting: [{get_texture_set_name(ts)}] {node.get_name()}")
+
         node_name = node.get_name()
         match = find_matching_key(node_name.strip().casefold(), states, loose)
         if match is None:
@@ -64,8 +66,8 @@ class ToggleLayersDialog(QtWidgets.QDialog):
         layout.addLayout(form)
 
         # Loose checkbox for name matching
-        self._loose_check = QtWidgets.QCheckBox("Loose matching (layer names starting with the entry)")
-        self._loose_check.setToolTip('ex.: "dam" matches "Damage" and "Damge"')
+        self._loose_check = QtWidgets.QCheckBox("Loose matching (entry matches the start of any word)")
+        self._loose_check.setToolTip('ex.: "summer" matches "CP - Summer", "dam" matches "Damage" and "Damge"')
         self._loose_check.setChecked(settings.loose_matching)
         layout.addWidget(self._loose_check)
 
