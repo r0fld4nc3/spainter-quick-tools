@@ -32,13 +32,13 @@ Notes:
 
 ## Installation
 
-1. Copy the plugin file into your Painter Python plugins folder:
+1. Copy the plugin folder into your Painter Python plugins folder:
    - **Windows:** `%USERPROFILE%\Documents\Adobe\Adobe Substance 3D Painter\python\plugins`
    - **macOS:** `~/Documents/Adobe/Adobe Substance 3D Painter/python/plugins`
    - **Linux:** `~/.local/share/Adobe/Adobe Substance 3D Painter/python/plugins`
 2. Restart Painter, or use **Python > Reload Plugins Folder**.
 3. Enable the plugin from the **Python** menu.
-4. Open a project. The tools are available under **CNLP**.
+4. Open a project. The tools are available under **Quick Tools**.
 
 ## Requirements
 
