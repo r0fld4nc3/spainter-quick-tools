@@ -80,10 +80,6 @@ class ToggleLayersDialog(QtWidgets.QDialog):
         # s.off_names = self._off_edit.text()
         s.loose_matching = self._loose_check.isChecked()
 
-    def _set_all(self, state):
-        for _, check in self._checks:
-            check.setChecked(state)
-
     def _on_accept(self):
         if not self.get_selected_texture_sets():
             QtWidgets.QMessageBox.warning(self, PLUGIN_NAME, "Select at least one texture set.")
@@ -129,11 +125,6 @@ class ConflictDialog(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(
             QtWidgets.QLabel("These names were entered in both ON and OFF fields.\n" "Checked = ON, unchecked = OFF.")
-        )
-
-        layout = QtWidgets.QVBoxLayout(self)
-        layout.addWidget(
-            QtWidgets.QLabel("These names were entered in both ON and OFF fields.\nChecked = ON, unchecked = OFF.")
         )
 
         self._list = CheckList(min_height=100)

@@ -4,7 +4,7 @@ import substance_painter.ui as spui
 from ..constants import PLUGIN_NAME, VERSION_STR
 from ..painter_utils import get_project_texture_sets, get_texture_set_name
 from ..qt_compat import QtCore, QtWidgets
-from ..widgets import CompactScrollArea
+from ..widgets import CompactScrollArea, make_ok_cancel
 from .base import Tool
 
 
@@ -39,8 +39,6 @@ class RenameDialog(QtWidgets.QDialog):
         self._setup_layout()
 
     def _setup_layout(self):
-        splog.info("Setup layout")
-
         layout = QtWidgets.QVBoxLayout(self)
 
         grid = QtWidgets.QGridLayout()
@@ -67,13 +65,11 @@ class RenameDialog(QtWidgets.QDialog):
         container.setLayout(grid)
         scroll = CompactScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setMinimumHeight(150)
         scroll.setWidget(container)
         layout.addWidget(scroll)
 
-        buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
-        buttons.accepted.connect(self._on_accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        layout.addWidget(make_ok_cancel(self._on_accept, self.reject))
 
     @staticmethod
     def _header(text):
@@ -92,11 +88,6 @@ class RenameDialog(QtWidgets.QDialog):
             return
 
         self.accept()
-
-    def center(self):
-        # Center the dialog on the parent's screen
-        if not self.parent:
-            return
 
         parent_geometry = self.parent.geometry()
         center_point = parent_geometry.center()
