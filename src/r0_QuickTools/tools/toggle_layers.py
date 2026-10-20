@@ -76,20 +76,8 @@ class ToggleLayersDialog(QtWidgets.QDialog):
 
         s = SessionSettings.toggle_layers_tool
         s.unchecked_texture_sets = self._ts_picker.unchecked_names()
-        s.on_names = self._on_edit.text()
-        s.off_names = self._off_edit.text()
-        s.loose_matching = self._loose_check.isChecked()
-
-    def get_selected_texture_sets(self):
-        return self._ts_picker.selected_texture_sets()
-
-    def _save_settings(self):
-        splog.info(f"{self.tool_name}: saving settings")
-
-        s = SessionSettings.toggle_layers_tool
-        s.unchecked_texture_sets = self._ts_picker.unchecked_names()
-        s.on_names = self._on_edit.text()
-        s.off_names = self._off_edit.text()
+        # s.on_names = self._on_edit.text()
+        # s.off_names = self._off_edit.text()
         s.loose_matching = self._loose_check.isChecked()
 
     def _set_all(self, state):
