@@ -32,13 +32,14 @@ Notes:
 
 ## Installation
 
-1. Copy the plugin folder into your Painter Python plugins folder:
+1. Unzip the `r0_QuickTools.zip`
+1. Copy the plugin folder (`r0_QuickTools`) into your Painter Python plugins folder:
    - **Windows:** `%USERPROFILE%\Documents\Adobe\Adobe Substance 3D Painter\python\plugins`
    - **macOS:** `~/Documents/Adobe/Adobe Substance 3D Painter/python/plugins`
    - **Linux:** `~/.local/share/Adobe/Adobe Substance 3D Painter/python/plugins`
-2. Restart Painter, or use **Python > Reload Plugins Folder**.
-3. Enable the plugin from the **Python** menu.
-4. Open a project. The tools are available under **Quick Tools**.
+1. Restart Painter, or use **Python > Reload Plugins Folder**.
+1. Enable the plugin from the **Python** menu.
+1. Open a project. The tools are available under **Quick Tools**.
 
 ## Requirements
 
