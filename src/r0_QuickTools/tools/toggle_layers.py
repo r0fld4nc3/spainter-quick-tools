@@ -14,7 +14,7 @@ from ..widgets import CheckList, TextureSetPicker, make_ok_cancel
 from .base import Tool
 
 
-def apply_toggles(texture_sets, states, loose=False):
+def apply_toggles(texture_sets, states, loose=False) -> int:
     """states: {name.casefold(): bool}. Returns number of nodes changed."""
     changed = 0
     log = []
@@ -96,16 +96,16 @@ class ToggleLayersDialog(QtWidgets.QDialog):
         self._save_settings()
         self.reject()
 
-    def get_selected_texture_sets(self):
+    def get_selected_texture_sets(self) -> list:
         return self._ts_picker.selected_texture_sets()
 
-    def get_on_names(self):
+    def get_on_names(self) -> list[str]:
         return parse_names(self._on_edit.text())
 
-    def get_off_names(self):
+    def get_off_names(self) -> list[str]:
         return parse_names(self._off_edit.text())
 
-    def is_loose_matching(self):
+    def is_loose_matching(self) -> bool:
         return self._loose_check.isChecked()
 
 
@@ -134,7 +134,7 @@ class ConflictDialog(QtWidgets.QDialog):
 
         layout.addWidget(make_ok_cancel(self.accept, self.reject))
 
-    def get_states(self):
+    def get_states(self) -> dict[str, bool]:
         """
         Return {name: bool} where True = ON.
         """

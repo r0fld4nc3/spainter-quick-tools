@@ -28,14 +28,14 @@ class ReleaseInfo:
     url: str  # Release page
 
     @property
-    def is_newer(self):
+    def is_newer(self) -> bool:
         """
         True if release is newer than installed version.
         """
         return is_newer(self.version, tuple(VERSION))
 
 
-def parse_version(tag):
+def parse_version(tag) -> tuple[int]:
     """
     v0.4.0 -> (0, 4, 0). Also handles '0.4', 'v1.2.3-beta', 'release1.2'.
     """
@@ -46,7 +46,7 @@ def parse_version(tag):
     return tuple(int(n) for n in match.group().split("."))
 
 
-def is_newer(remote, local):
+def is_newer(remote, local) -> bool:
     """
     Compare version tuples, treating missing parts as 0 so (0, 5) == (0, 5, 0).
     """
@@ -57,7 +57,7 @@ def is_newer(remote, local):
     return remote > local
 
 
-def fetch_latest_release():
+def fetch_latest_release() -> ReleaseInfo:
     """
     Blocking request to GitHub.
     Returns ReleaseInfo or raises network/API errors.

@@ -1,7 +1,8 @@
 import re
+from typing import Optional
 
 
-def parse_names(text):
+def parse_names(text) -> list[str]:
     """'a, b ,, c' -> ['a', 'b', 'c'] (empty entries and case-insensitive duplicates removed)"""
     names, seen = [], set()
 
@@ -15,7 +16,7 @@ def parse_names(text):
     return names
 
 
-def find_matching_key(name_key, keys, loose=False):
+def find_matching_key(name_key, keys, loose=False) -> Optional[list[str]]:
     """
     Best entry in `keys` for an already-casefolded name, or None.
 
